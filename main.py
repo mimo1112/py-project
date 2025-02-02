@@ -1,74 +1,68 @@
 import tkinter as tk
 from tkinter import messagebox
+from PIL import Image, ImageTk
 import cv2
 import os
+from ffpyplayer.player import MediaPlayer  # For audio playback
 
-# Function to play the video using OpenCV
 def play_video():
-    # Set the path to your video
-    video_path = os.path.join(os.getcwd(), 'temp.mp4')  # Ensure 'temp.mp4' is in the same folder
+    video_path = os.path.join(os.getcwd(), 'temp.mp4')
 
-    # Open the video using OpenCV
+    if not os.path.exists(video_path):
+        messagebox.showerror("Error", "Video file not found.")
+        return
+
     cap = cv2.VideoCapture(video_path)
+    player = MediaPlayer(video_path)  # Load audio
 
-    # Check if the video was opened successfully
     if not cap.isOpened():
         messagebox.showerror("Error", "Unable to open video file.")
         return
 
-    # Create a tkinter window for video display
+    # Create a new window for video
     window = tk.Toplevel()
     window.title("Video Player")
-    window.geometry('640x480')
 
-    # Create a canvas for video display
-    canvas = tk.Canvas(window, width=640, height=480)
-    canvas.pack()
+    # Create a label to display video frames
+    label = tk.Label(window)
+    label.pack()
 
-    # Read and display video frames
-    while cap.isOpened():
+    def update_frame():
         ret, frame = cap.read()
-        if not ret:
-            break
+        audio_frame, val = player.get_frame()  # Get audio frame
 
-        # Convert the frame to RGB format (OpenCV uses BGR)
-        frame_rgb = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
+        if ret:
+            frame_rgb = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
+            img = Image.fromarray(frame_rgb)
+            imgtk = ImageTk.PhotoImage(image=img)
 
-        # Convert the frame to a PhotoImage for tkinter
-        photo = tk.PhotoImage(image=tk.Image.fromarray(frame_rgb))
+            label.imgtk = imgtk  # Prevent garbage collection
+            label.config(image=imgtk)
 
-        # Display the frame on the canvas
-        canvas.create_image(0, 0, anchor=tk.NW, image=photo)
-        window.update_idletasks()
+            if val != 'eof' and audio_frame is not None:
+                window.after(10, update_frame)  # Schedule next frame
+        else:
+            cap.release()
+            player.close_player()
+            window.destroy()  # Close the window when the video ends
 
-        # Allow for tkinter window events to be processed
-        window.update()
+    update_frame()  # Start video playback
 
-    # Release the video capture when done
-    cap.release()
-
-# Main function to handle button clicks and popups
+# Main function to handle button clicks
 def onClick():
     messagebox.showinfo("Happy Valentines Babe.", "Hi, I'm your message")  # First message popup
     
-    # Second message popup
     result = messagebox.askyesno("Something", "Do you want to proceed to the next message?")
-    if result:  # If user clicks "Yes"
+    if result:
         messagebox.showinfo("Something2", "Here's the second message!")
-        
-        # After second message is clicked, set the flag and play the video
-        flag = True
-        if flag:
-            play_video()
+        play_video()
 
-# Set up the Tkinter window
+# Tkinter main window setup
 root = tk.Tk()
 root.title("Press button")
 root.geometry('500x300')
 
-# Create the button that triggers the onClick function
 button = tk.Button(root, text="Click Me", command=onClick, height=5, width=10)
 button.pack(side='bottom')
 
-# Run the Tkinter event loop
 root.mainloop()
